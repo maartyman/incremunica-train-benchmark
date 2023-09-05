@@ -1,0 +1,34 @@
+{
+  "private": true,
+  "repository": "https://github.com/maartyman/incremunica-trainbench/",
+  "workspaces": [
+    "lib/*",
+    "bin/*"
+  ],
+  "devDependencies": {
+    "@babel/core": "^7.20.2",
+    "@babel/preset-env": "^7.20.2",
+    "@strictsoftware/typedoc-plugin-monorepo": "^0.4.2",
+    "babel-loader": "^9.1.0",
+    "@rubensworks/eslint-config": "^2.0.0",
+    "eslint": "^8.27.0",
+    "nodemon": "^2.0.20",
+    "typescript": "4.5.5",
+    "pre-commit": "^1.2.2"
+  },
+  "pre-commit": [
+    "build",
+    "lint"
+  ],
+  "scripts": {
+    "lint": "eslint . --ext .ts --cache",
+    "lint-fix": "eslint . --ext .ts --fix",
+    "build": "tsc",
+    "run": "tsc && node lib/index.js"
+  },
+  "dependencies": {
+    "@incremunica/query-sparql-incremental": "1.0.3",
+    "@incremunica/config-query-sparql-incremental": "1.0.3",
+    "@incremunica/incremental-rdf-streaming-store": "^1.0.0"
+  }
+}
