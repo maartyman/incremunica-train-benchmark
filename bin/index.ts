@@ -1,15 +1,22 @@
 import {QueryRunner} from "../lib/QueryRunner";
-import {InjectPosLengthScenario, BatchPosLengthScenario} from "../lib/scenarios/Scenarios";
+import {BatchConnectedSegments} from "../lib/operations/batch/BatchConnectedSegments";
 
 async function run(): Promise<void> {
 
-  let scenario = new InjectPosLengthScenario();
+  //make result file
 
   const queryRunner = await QueryRunner.setupQueryRunner(
-    "/home/maarten/Documents/doctoraat/code/incremunica-trainbench/data/configs/computational-bind-join/config.json",
-    "/home/maarten/Documents/doctoraat/code/incremunica-trainbench/data/models/railway-inject-1-inferred.ttl",
-    scenario,
-    "/home/maarten/Documents/doctoraat/code/incremunica-trainbench/results/resultsTest.csv"
+    {
+      matchTransformPercentage: 20,
+      randomSeed: "incremunica",
+      queryEngineConfig: "/home/maarten/Documents/doctoraat/code/incremunica-trainbench/data/configs/full-hash-join/config.json",
+      dataPath: "/home/maarten/Documents/doctoraat/code/incremunica-trainbench/data/models/railway-inject-1-inferred.ttl",
+      operationCreators: [
+        BatchConnectedSegments.operationCreator
+      ],
+      resultsPath: "/home/maarten/Documents/doctoraat/code/incremunica-trainbench/results/resultsTest.csv",
+      numberOfTransforms: 5
+    },
   );
 
   await queryRunner.run();
