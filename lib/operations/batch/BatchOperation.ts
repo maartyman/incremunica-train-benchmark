@@ -1,18 +1,18 @@
 import type { Bindings } from '@incremunica/incremental-types';
+import type { Driver } from '../../Driver';
+import type { BenchmarkConfig } from '../../Types';
 import { Operation } from '../Operation';
-import {Driver} from "../../Driver";
-import {BenchmarkConfig} from "../../Types";
 
 export class BatchOperation extends Operation {
-  constructor(driver: Driver,
-              config: BenchmarkConfig,
-              queryString: string,
-              operationName: string) {
+  public constructor(driver: Driver,
+    config: BenchmarkConfig,
+    queryString: string,
+    operationName: string) {
     super(driver,
       config,
+      false,
       queryString,
-      operationName,
-      false);
+      operationName);
   }
 
   protected _transform(bindings: Bindings): void {

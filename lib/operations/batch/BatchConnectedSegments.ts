@@ -1,10 +1,9 @@
+import type { Driver } from '../../Driver';
+import type { BenchmarkConfig } from '../../Types';
 import { BatchOperation } from './BatchOperation';
-import {Driver} from "../../Driver";
-import {BenchmarkConfig} from "../../Types";
 
 export class BatchConnectedSegments extends BatchOperation {
-
-  constructor(driver: Driver, config: BenchmarkConfig) {
+  public constructor(driver: Driver, config: BenchmarkConfig) {
     super(
       driver,
       config,
@@ -40,7 +39,7 @@ WHERE
     ?segment6 base:monitoredBy ?sensor .
 }
 `,
-      'batch connected segments'
+      'batch connected segments',
     );
   }
 }

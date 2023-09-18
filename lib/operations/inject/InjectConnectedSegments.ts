@@ -2,14 +2,13 @@ import type { Bindings } from '@incremunica/incremental-types';
 import { Quad } from '@incremunica/incremental-types';
 import { NamedNode } from 'n3';
 import { BASE_PREFIX, CONNECTS_TO, LENGTH, MONITORED_BY, RDF, SEGMENT } from '../../BenchmarkTerms';
+import type { Driver } from '../../Driver';
 import { DEFAULT_SEGMENT_LENGTH } from '../../TrainBenchmarkConstants';
+import type { BenchmarkConfig } from '../../Types';
 import { TransformationOperation } from '../TransformationOperation';
-import {Driver} from "../../Driver";
-import {BenchmarkConfig} from "../../Types";
 
 export class InjectConnectedSegments extends TransformationOperation {
-
-  constructor(driver: Driver, config: BenchmarkConfig) {
+  public constructor(driver: Driver, config: BenchmarkConfig) {
     super(
       driver,
       config,
@@ -28,7 +27,7 @@ WHERE {
     ?segment3 rdf:type base:Segment .
 }
 `,
-      'inject connected segments'
+      'inject connected segments',
     );
   }
 
@@ -39,6 +38,8 @@ WHERE {
     const segment2 = new NamedNode(`${BASE_PREFIX}_${id}`);
     const segment3 = this.getSafe(bindings, 'segment3');
     const sensor = this.getSafe(bindings, 'sensor');
+
+    //console.log(segment1, segment2, segment3, sensor);
 
     this.driver.streamingStore.addQuad(new Quad(
       segment2,

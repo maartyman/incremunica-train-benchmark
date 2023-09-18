@@ -1,0 +1,17 @@
+import { BatchOperation } from './BatchOperation';
+import {Driver} from "../../Driver";
+import {BenchmarkConfig} from "../../Types";
+
+export class BatchConnectedSegments extends BatchOperation {
+
+  public constructor(driver: Driver, config: BenchmarkConfig) {
+    super(
+      driver,
+      config,
+      `
+
+`,
+      ''
+    );
+  }
+}

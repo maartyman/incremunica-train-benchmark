@@ -1,16 +1,16 @@
+import type { Driver } from '../Driver';
+import type { BenchmarkConfig } from '../Types';
 import { Operation } from './Operation';
-import {Driver} from "../Driver";
-import {BenchmarkConfig} from "../Types";
 
 export class TransformationOperation extends Operation {
-  constructor(driver: Driver,
-              config: BenchmarkConfig,
-              queryString: string,
-              operationName: string) {
+  public constructor(driver: Driver,
+    config: BenchmarkConfig,
+    queryString: string,
+    operationName: string) {
     super(driver,
       config,
+      true,
       queryString,
-      operationName,
-      true);
+      operationName);
   }
 }
