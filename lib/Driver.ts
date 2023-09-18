@@ -9,7 +9,9 @@ import type { BenchmarkConfig } from './Types';
 
 export class Driver {
   private vertexId: number;
+
   public readonly queryEngine: QueryEngine;
+
   public readonly streamingStore: StreamingStore<Quad>;
 
   public constructor(queryEngine: QueryEngine, streamingStore: StreamingStore<Quad>, vertexId: number) {
@@ -66,14 +68,14 @@ export class Driver {
   }
 
   public deleteQuads(subject: OTerm, predicate: OTerm, object: OTerm, graph: OTerm): void {
-    for (const segment2Quad of this.streamingStore.getStore().getQuads(
+    for (const quad of this.streamingStore.getStore().getQuads(
       subject,
       predicate,
       object,
       graph,
     )
     ) {
-      this.streamingStore.removeQuad(segment2Quad);
+      this.streamingStore.removeQuad(quad);
     }
   }
 }

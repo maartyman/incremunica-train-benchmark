@@ -1,11 +1,14 @@
 import { appendFile } from 'fs/promises';
 import { Driver } from './Driver';
 import type { Operation } from './operations/Operation';
+import { OperationFactory } from './operations/OperationFactory';
 import type { BenchmarkConfig, Time } from './Types';
 
 export class QueryRunner {
   private readonly driver: Driver;
+
   private readonly operations: Operation[];
+
   private readonly benchmarkConfig: BenchmarkConfig;
 
   public constructor(
@@ -18,27 +21,56 @@ export class QueryRunner {
     this.benchmarkConfig = benchmarkConfig;
   }
 
+  public static BuildCSVHeader(benchmarkConfig: BenchmarkConfig): string {
+    let header = 'initialQueryTime(seconds),' +
+      'initialQueryTime(nanoseconds),' +
+      'initialMemoryUsed';
+
+    for (let i = 0; i < benchmarkConfig.numberOfTransforms; i++) {
+      header += `,transformTime(seconds)_transform-${i}`;
+      header += `,transformTime(nanoseconds)_transform-${i}`;
+      header += `,transformMemoryUsed_transform-${i}`;
+
+      header += `,recheckTime(seconds)_transform-${i}`;
+      header += `,recheckTime(nanoseconds)_transform-${i}`;
+      header += `,recheckMemoryUsed_transform-${i}`;
+    }
+
+    header += '\n';
+    return header;
+  }
+
   public static async setupQueryRunner(
     benchmarkConfig: BenchmarkConfig,
   ): Promise<QueryRunner> {
     // Init + read
+    console.log('init + read');
     const driver = await Driver.create(benchmarkConfig);
 
     const operations = [];
-    for (const operationCreator of benchmarkConfig.operationCreators) {
-      operations.push(operationCreator(driver, benchmarkConfig));
+    for (const operationSting of benchmarkConfig.operationStings) {
+      operations.push(OperationFactory.create(operationSting, driver, benchmarkConfig));
     }
 
     return new QueryRunner(driver, operations, benchmarkConfig);
   }
 
   public async run(): Promise<void> {
-    // eslint-disable-next-line no-console
     console.log('Start run');
     // eslint-disable-next-line no-process-env
     if (process.env.NODE_ENV !== 'production') {
       throw new Error('Not in production mode!');
     }
+
+    console.log('Calculate num of results');
+
+    for (const operation of this.operations) {
+      if (!operation.transformation) {
+        await operation.calculateNumberOfResults();
+      }
+    }
+
+    console.log('Query');
 
     // Query
     const initialQueryStart = process.hrtime();
@@ -57,18 +89,31 @@ export class QueryRunner {
       recheckMemoryUsed: number; }[] = [];
 
     for (let i = 0; i < this.benchmarkConfig.numberOfTransforms; i++) {
-      this.driver.streamingStore.halt();
+      // This.driver.streamingStore.halt();
+
+      console.log('Transform');
       // Transform
       const transformStart = process.hrtime();
       for (const operation of this.operations) {
         if (operation.transformation) {
+          await operation.calculateNumberOfResults();
           await operation.transform();
         }
       }
       const transformTime = process.hrtime(transformStart);
       const transformMemoryUsed = process.memoryUsage().heapUsed;
 
-      this.driver.streamingStore.resume();
+      // This.driver.streamingStore.resume();
+
+      console.log('Calculate num of results');
+
+      for (const operation of this.operations) {
+        if (!operation.transformation) {
+          await operation.calculateNumberOfResults();
+        }
+      }
+
+      console.log('Recheck');
       // Recheck
       const recheckStart = process.hrtime();
       for (const operation of this.operations) {
