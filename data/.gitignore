@@ -1,0 +1,10 @@
+*
+!.gitignore
+!cachedResults
+!cachedResults/*
+!configs
+!configs/*
+!models
+!models/*
+!benchmarkConfigs
+!benchmarkConfigs/*
