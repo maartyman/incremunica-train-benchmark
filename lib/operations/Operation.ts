@@ -1,10 +1,14 @@
-import { QueryEngine } from '@comunica/query-sparql-rdfjs';
-import type { Bindings, BindingsStream } from '@incremunica/incremental-types';
+import * as fs from 'fs';
+import { QueryEngineFactory } from '@comunica/query-sparql-rdfjs';
+import { BindingsFactory } from '@incremunica/incremental-bindings-factory';
+import type { Bindings, BindingsStream, Quad } from '@incremunica/incremental-types';
 import type { Term } from 'n3';
 import seedrandom = require('seedrandom');
+import { StreamingStore } from '../../../incremunica/packages/incremental-rdf-streaming-store';
 import type { Driver } from '../Driver';
 import type { BenchmarkConfig } from '../Types';
-import {DevTools} from "@incremunica/dev-tools";
+
+const BF = new BindingsFactory();
 
 export class Operation {
   public readonly queryString: string;
@@ -15,11 +19,13 @@ export class Operation {
 
   protected driver: Driver;
 
+  protected streamingStore: StreamingStore<Quad>;
+
   private bindingsStream: BindingsStream | undefined;
 
-  private readonly bindingsMap = new Map<string, Bindings>();
+  private readonly bindingsMap = new Map<string, { bindings: Bindings; count: number }>();
 
-  private changeBindingsMap = new Map<string, boolean>();
+  private changeBindingsMap = new Map<string, number>();
 
   private readonly config: BenchmarkConfig;
 
@@ -32,6 +38,10 @@ export class Operation {
   ) {
     this.driver = driver;
     this.config = config;
+
+    this.streamingStore = new StreamingStore<Quad>();
+    this.streamingStore.halt();
+    this.streamingStore.import(this.driver.streamingStore.match());
 
     if (queryString === '') {
       throw new Error(`${this.operationName} does not overwrite 'queryString'`);
@@ -72,16 +82,17 @@ export class Operation {
         this.bindingsStream = <BindingsStream> await this.driver.queryEngine.queryBindings(
           this.queryString,
           {
-            sources: [ this.driver.streamingStore ],
+            sources: [ this.streamingStore ],
           },
         );
       }
 
+      this.streamingStore.resume();
       this.readFromBindingsStream(resolve);
       this.bindingsStream.on('readable', () => this.readFromBindingsStream(resolve));
     });
 
-    console.log(this.operationName, 'number of total results:', this.bindingsMap.size);
+    // Console.log(this.operationName, 'number of total results:', this.bindingsMap.size);
   }
 
   private readFromBindingsStream(resolve: (value: (void | PromiseLike<void>)) => void): void {
@@ -90,62 +101,111 @@ export class Operation {
       const hash = Operation.bindingsHash(bindings);
       const change = this.changeBindingsMap.get(hash);
 
-      /*
-      if (!this.transformation) {
-        DevTools.printBindings(bindings);
-      }
-       */
-
-      if (change !== undefined && (change === bindings.diff)) {
-        this.changeBindingsMap.delete(hash);
-      }
-      if (bindings.diff) {
-        this.bindingsMap.set(hash, bindings);
+      if (change === undefined) {
+        this.changeBindingsMap.set(hash, bindings.diff ? -1 : 1);
       } else {
-        this.bindingsMap.delete(hash);
+        const newChange = change + (bindings.diff ? -1 : 1);
+        if (newChange === 0) {
+          this.changeBindingsMap.delete(hash);
+        } else {
+          this.changeBindingsMap.set(hash, newChange);
+        }
+      }
+
+      const bindingsData = this.bindingsMap.get(hash);
+      if (bindings.diff) {
+        if (bindingsData) {
+          bindingsData.count++;
+          if (bindingsData.count === 0) {
+            this.bindingsMap.delete(hash);
+          }
+        } else {
+          this.bindingsMap.set(hash, { bindings, count: 1 });
+        }
+      } else if (bindingsData) {
+        bindingsData.count--;
+        if (bindingsData.count === 0) {
+          this.bindingsMap.delete(hash);
+        }
+      } else {
+        this.bindingsMap.set(hash, { bindings, count: -1 });
       }
       if (this.changeBindingsMap.size === 0) {
         this.bindingsStream!.removeAllListeners('readable');
+        this.streamingStore.halt();
         resolve();
       }
+
+      //
+      // if (this.operationName === 'repair connected segments') {
+      // console.log("split");
+      // for (const [key, value] of this.changeBindingsMap) {
+      //     console.log(key, value);
+      // }
+      // }
+      //
+
       bindings = this.bindingsStream!.read();
     }
   }
 
-  public async calculateNumberOfResults(): Promise<void> {
-    const engine = new QueryEngine();
-    const bindingsStream = await engine.queryBindings(
-      this.queryString,
-      {
-        sources: [ this.driver.streamingStore.getStore() ],
-      },
-    );
+  public async calculateNumberOfResults(cachedResults: any, runNum: number): Promise<void> {
+    const changeBindingsMap = cachedResults[this.operationName + runNum.toString()];
+    if (changeBindingsMap) {
+      for (let i = 0; i < 20; i++) {
+        await new Promise<void>(resolve => setTimeout(() => resolve(), 1));
+      }
+      this.changeBindingsMap = new Map(Object.entries(changeBindingsMap));
+    } else {
+      const engine = await new QueryEngineFactory().create();
+      const bindingsStream = await engine.queryBindings(
+        this.queryString,
+        {
+          sources: [ this.driver.streamingStore.getStore() ],
+        },
+      );
 
-    this.changeBindingsMap = new Map<string, boolean>();
-    for (const key of this.bindingsMap.keys()) {
-      this.changeBindingsMap.set(key, false);
+      this.changeBindingsMap = new Map<string, number>();
+      for (const key of this.bindingsMap.keys()) {
+        this.changeBindingsMap.set(key, -1);
+      }
+
+      bindingsStream.on('data', (bindings: Bindings) => {
+        const hash = Operation.bindingsHash(bindings);
+        if (this.changeBindingsMap.has(hash)) {
+          this.changeBindingsMap.delete(hash);
+        } else {
+          this.changeBindingsMap.set(hash, 1);
+        }
+      });
+
+      await new Promise<void>(resolve => bindingsStream.on('end', () => resolve()));
+
+      const cachedResultsMap = new Map<string, number>();
+      for (const [ key, value ] of this.changeBindingsMap) {
+        cachedResultsMap.set(key, value);
+      }
+
+      cachedResults[this.operationName + runNum.toString()] = Object.fromEntries(cachedResultsMap.entries());
+
+      await new Promise<void>(resolve => fs.writeFile(
+        cachedResults.cachedResultsFilePath,
+        JSON.stringify(cachedResults),
+        () => {
+          resolve();
+        },
+      ));
     }
 
-    bindingsStream.on('data', (bindings: Bindings) => {
-      const hash = Operation.bindingsHash(bindings);
-      if (this.changeBindingsMap.has(hash)) {
-        this.changeBindingsMap.delete(hash);
-      } else {
-        this.changeBindingsMap.set(hash, true);
-      }
-    });
+    //
+    // if (this.operationName === 'repair connected segments') {
+    // for (const [key, value] of this.changeBindingsMap) {
+    //     console.log(key, value);
+    // }
+    // }
+    //
 
-    await new Promise<void>(resolve => bindingsStream.on('end', () => resolve()));
-
-    /*
-    if (!this.transformation) {
-      for (const [key, value] of this.changeBindingsMap) {
-        console.log(key, value);
-      }
-    }
-     */
-
-    console.log(this.operationName, 'number of new results:', this.changeBindingsMap.size);
+    // console.log(this.operationName, 'number of new results:', this.changeBindingsMap.size);
   }
 
   public async transform(): Promise<void> {
@@ -156,7 +216,7 @@ export class Operation {
 
     const bindings: Bindings[] = this.getTransformMatches();
 
-    console.log(this.operationName, 'bindings transform length', bindings.length);
+    // Console.log(this.operationName, 'bindings transform length', bindings.length);
     bindings.forEach(this._transform.bind(this));
   }
 
@@ -165,30 +225,29 @@ export class Operation {
   }
 
   private getTransformMatches(): Bindings[] {
-    seedrandom(this.config.randomSeed, { global: true });
+    const rng = seedrandom(this.config.randomSeed);
     const size = Math.floor(this.config.matchTransformPercentage / 100 * this.bindingsMap.size);
 
-    let bindings = [ ...this.bindingsMap.values()].sort((bindings1: Bindings, bindings2: Bindings) => {
-      if (Operation.bindingsHash(bindings1) < Operation.bindingsHash(bindings2)) {
-        return -1;
-      }
-      if (Operation.bindingsHash(bindings1) > Operation.bindingsHash(bindings2)) {
-        return 1;
-      }
-      return 0;
-    }).slice(0, size);
+    const bindings = [ ...this.bindingsMap.values() ]
+      .map(values => values.bindings)
+      .sort((bindings1: Bindings, bindings2: Bindings) => {
+        if (Operation.bindingsHash(bindings1) < Operation.bindingsHash(bindings2)) {
+          return -1;
+        }
+        if (Operation.bindingsHash(bindings1) > Operation.bindingsHash(bindings2)) {
+          return 1;
+        }
+        return 0;
+      }).slice(0, size);
 
     for (let i = bindings.length; i > 1; i--) {
-      const temp = bindings[this.nextInt(i)];
-      bindings[this.nextInt(i)] = bindings[i - 1];
+      const int = Math.floor(rng() * bindings.length);
+      const temp = bindings[int];
+      bindings[int] = bindings[i - 1];
       bindings[i - 1] = temp;
     }
 
     return bindings;
-  }
-
-  private nextInt(int: number): number {
-    return Math.floor(Math.random() * int);
   }
 
   protected getSafe(bindings: Bindings, variable: string): Term {

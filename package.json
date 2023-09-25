@@ -195,7 +195,8 @@
     "@incremunica/incremental-rdf-streaming-store": "file:../incremunica/packages/incremental-rdf-streaming-store",
     "@incremunica/incremental-types": "file:../incremunica/packages/incremental-types",
     "@incremunica/query-sparql-incremental": "file:../incremunica/engines/query-sparql-incremental",
-    "@incremunica/dev-tools": "^1.0.0",
+    "@incremunica/dev-tools": "file:../incremunica/packages/dev-tools",
+    "@incremunica/incremental-bindings-factory": "file:../incremunica/packages/incremental-bindings-factory",
 
     "cli-progress": "^3.12.0",
     "cross-spawn": "^7.0.3",

@@ -8,4 +8,6 @@ export type BenchmarkConfig = {
   queryEngineConfig: string;
   dataPath: string;
   resultsPath: string;
+  cachedResultsBasePath: string;
+  runNr: number;
 };

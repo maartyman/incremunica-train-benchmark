@@ -1,9 +1,8 @@
+import type { Driver } from '../../Driver';
+import type { BenchmarkConfig } from '../../Types';
 import { BatchOperation } from './BatchOperation';
-import {Driver} from "../../Driver";
-import {BenchmarkConfig} from "../../Types";
 
-export class BatchConnectedSegments extends BatchOperation {
-
+export class _ extends BatchOperation {
   public constructor(driver: Driver, config: BenchmarkConfig) {
     super(
       driver,
@@ -11,7 +10,7 @@ export class BatchConnectedSegments extends BatchOperation {
       `
 
 `,
-      ''
+      'batch ',
     );
   }
 }

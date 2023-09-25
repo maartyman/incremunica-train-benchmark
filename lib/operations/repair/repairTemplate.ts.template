@@ -1,11 +1,12 @@
 import type { Bindings } from '@incremunica/incremental-types';
 import { Quad } from '@incremunica/incremental-types';
-import { CONNECTS_TO } from '../../BenchmarkTerms';
+import { NamedNode } from 'n3';
+import { BASE_PREFIX, MONITORED_BY, RDF, SENSOR } from '../../BenchmarkTerms';
+import type { Driver } from '../../Driver';
+import type { BenchmarkConfig } from '../../Types';
 import { TransformationOperation } from '../TransformationOperation';
-import {Driver} from "../../Driver";
-import {BenchmarkConfig} from "../../Types";
 
-export class RepairConnectedSegments extends TransformationOperation {
+export class _ extends TransformationOperation {
   public constructor(driver: Driver, config: BenchmarkConfig) {
     super(
       driver,
@@ -13,11 +14,11 @@ export class RepairConnectedSegments extends TransformationOperation {
       `
 
 `,
-      ''
-      );
+      'repair ',
+    );
   }
 
   protected _transform(bindings: Bindings): void {
-
+    throw new Error(''`_transform()` not implemented');
   }
 }

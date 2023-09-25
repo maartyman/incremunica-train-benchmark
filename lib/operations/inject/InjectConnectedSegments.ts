@@ -39,7 +39,7 @@ WHERE {
     const segment3 = this.getSafe(bindings, 'segment3');
     const sensor = this.getSafe(bindings, 'sensor');
 
-    //console.log(segment1, segment2, segment3, sensor);
+    // Console.log(segment1, segment2, segment3, sensor);
 
     this.driver.streamingStore.addQuad(new Quad(
       segment2,

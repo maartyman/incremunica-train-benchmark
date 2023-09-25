@@ -1,8 +1,9 @@
+import * as fs from 'fs';
 import { appendFile } from 'fs/promises';
 import { Driver } from './Driver';
 import type { Operation } from './operations/Operation';
 import { OperationFactory } from './operations/OperationFactory';
-import type { BenchmarkConfig, Time } from './Types';
+import type { BenchmarkConfig } from './Types';
 
 export class QueryRunner {
   private readonly driver: Driver;
@@ -11,40 +12,35 @@ export class QueryRunner {
 
   private readonly benchmarkConfig: BenchmarkConfig;
 
+  private readonly cachedResults: any;
+
   public constructor(
     driver: Driver,
     operations: Operation[],
     benchmarkConfig: BenchmarkConfig,
+    cachedResults: any = {},
   ) {
     this.driver = driver;
     this.operations = operations;
     this.benchmarkConfig = benchmarkConfig;
+    this.cachedResults = cachedResults;
   }
 
   public static BuildCSVHeader(benchmarkConfig: BenchmarkConfig): string {
-    let header = 'initialQueryTime(seconds),' +
-      'initialQueryTime(nanoseconds),' +
-      'initialMemoryUsed';
-
-    for (let i = 0; i < benchmarkConfig.numberOfTransforms; i++) {
-      header += `,transformTime(seconds)_transform-${i}`;
-      header += `,transformTime(nanoseconds)_transform-${i}`;
-      header += `,transformMemoryUsed_transform-${i}`;
-
-      header += `,recheckTime(seconds)_transform-${i}`;
-      header += `,recheckTime(nanoseconds)_transform-${i}`;
-      header += `,recheckMemoryUsed_transform-${i}`;
-    }
-
-    header += '\n';
-    return header;
+    return 'operationName,' +
+      'isTransformation,' +
+      'runNr,' +
+      'transformationNr,' +
+      'queryTime(seconds),' +
+      'queryTime(nanoseconds),' +
+      'memoryUsed\n';
   }
 
   public static async setupQueryRunner(
     benchmarkConfig: BenchmarkConfig,
   ): Promise<QueryRunner> {
     // Init + read
-    console.log('init + read');
+    // console.log('init + read');
     const driver = await Driver.create(benchmarkConfig);
 
     const operations = [];
@@ -52,98 +48,135 @@ export class QueryRunner {
       operations.push(OperationFactory.create(operationSting, driver, benchmarkConfig));
     }
 
-    return new QueryRunner(driver, operations, benchmarkConfig);
+    const pathArray = benchmarkConfig.dataPath.split('/');
+    const cachedResultsFilePath = `${benchmarkConfig.cachedResultsBasePath +
+      benchmarkConfig.randomSeed}#${
+      benchmarkConfig.operationStings
+        .map(str => str.replace(/[a-z]/gu, '')).join('#')}#${
+      benchmarkConfig.matchTransformPercentage}#${
+      pathArray[pathArray.length - 1]}.json`;
+
+    const cachedResults = await new Promise<any>((resolve, reject) => {
+      fs.readFile(
+        cachedResultsFilePath,
+        'utf8',
+        (error, data) => {
+          if (error) {
+            resolve({});
+          }
+          try {
+            resolve(JSON.parse(data));
+          } catch {
+            resolve({});
+          }
+        },
+      );
+    });
+
+    cachedResults.cachedResultsFilePath = cachedResultsFilePath;
+
+    return new QueryRunner(driver, operations, benchmarkConfig, cachedResults);
   }
 
   public async run(): Promise<void> {
-    console.log('Start run');
+    // Console.log('Start run');
     // eslint-disable-next-line no-process-env
     if (process.env.NODE_ENV !== 'production') {
       throw new Error('Not in production mode!');
     }
 
-    console.log('Calculate num of results');
+    const benchmarkResults: {
+      operationName: string;
+      isTransformation: boolean;
+      transformationNr: number;
+      queryTimes: number;
+      queryTimens: number;
+      memoryUsed: number;
+    }[] = [];
 
-    for (const operation of this.operations) {
-      if (!operation.transformation) {
-        await operation.calculateNumberOfResults();
-      }
-    }
-
-    console.log('Query');
-
+    // Console.log('Query');
     // Query
-    const initialQueryStart = process.hrtime();
     for (const operation of this.operations) {
       if (!operation.transformation) {
+        // Console.log('Calculate num of results');
+        await operation.calculateNumberOfResults(this.cachedResults, 0);
+
+        const initialQueryStart = process.hrtime();
         await operation.query();
+        const time = process.hrtime(initialQueryStart);
+        const memory = process.memoryUsage().heapUsed;
+
+        benchmarkResults.push({
+          operationName: operation.operationName,
+          isTransformation: false,
+          transformationNr: 0,
+          queryTimes: time[0],
+          queryTimens: time[1],
+          memoryUsed: memory,
+        });
       }
     }
-    const initialQueryTime = process.hrtime(initialQueryStart);
-    const initialMemoryUsed = process.memoryUsage().heapUsed;
 
-    const transformData: {
-      transformTime: Time;
-      transformMemoryUsed: number;
-      recheckTime: Time;
-      recheckMemoryUsed: number; }[] = [];
-
-    for (let i = 0; i < this.benchmarkConfig.numberOfTransforms; i++) {
-      // This.driver.streamingStore.halt();
-
-      console.log('Transform');
+    for (let i = 1; i < this.benchmarkConfig.numberOfTransforms + 1; i++) {
+      // Console.log('Transform');
       // Transform
-      const transformStart = process.hrtime();
       for (const operation of this.operations) {
         if (operation.transformation) {
-          await operation.calculateNumberOfResults();
+          // Console.log('Calculate num of results');
+          await operation.calculateNumberOfResults(this.cachedResults, i);
+
+          const initialQueryStart = process.hrtime();
           await operation.transform();
+          const time = process.hrtime(initialQueryStart);
+          const memory = process.memoryUsage().heapUsed;
+
+          benchmarkResults.push({
+            operationName: operation.operationName,
+            isTransformation: true,
+            transformationNr: i,
+            queryTimes: time[0],
+            queryTimens: time[1],
+            memoryUsed: memory,
+          });
         }
       }
-      const transformTime = process.hrtime(transformStart);
-      const transformMemoryUsed = process.memoryUsage().heapUsed;
-
-      // This.driver.streamingStore.resume();
-
-      console.log('Calculate num of results');
-
-      for (const operation of this.operations) {
-        if (!operation.transformation) {
-          await operation.calculateNumberOfResults();
-        }
-      }
-
-      console.log('Recheck');
+      // Console.log('Recheck');
       // Recheck
-      const recheckStart = process.hrtime();
       for (const operation of this.operations) {
         if (!operation.transformation) {
+          // Console.log('Calculate num of results');
+          await operation.calculateNumberOfResults(this.cachedResults, i);
+
+          const initialQueryStart = process.hrtime();
           await operation.query();
+          const time = process.hrtime(initialQueryStart);
+          const memory = process.memoryUsage().heapUsed;
+
+          benchmarkResults.push({
+            operationName: operation.operationName,
+            isTransformation: false,
+            transformationNr: i,
+            queryTimes: time[0],
+            queryTimens: time[1],
+            memoryUsed: memory,
+          });
         }
       }
-      const recheckTime = process.hrtime(recheckStart);
-      const recheckMemoryUsed = process.memoryUsage().heapUsed;
-      transformData.push({
-        transformTime,
-        transformMemoryUsed,
-        recheckTime,
-        recheckMemoryUsed,
-      });
     }
 
-    let content = `${initialQueryTime[0]},` +
-      `${initialQueryTime[1]},` +
-      `${initialMemoryUsed}`;
+    if (this.benchmarkConfig.runNr >= 0) {
+      let content = '';
+      for (const result of benchmarkResults) {
+        content += `${result.operationName},`;
+        content += `${result.isTransformation},`;
+        content += this.benchmarkConfig.runNr;
+        content += `${result.transformationNr},`;
+        content += `${result.queryTimes},`;
+        content += `${result.queryTimens},`;
+        content += `${result.memoryUsed}\n`;
+      }
 
-    for (const transformDataElement of transformData) {
-      content += `,${transformDataElement.transformTime[0]}`;
-      content += `,${transformDataElement.transformTime[1]}`;
-      content += `,${transformDataElement.transformMemoryUsed}`;
-      content += `,${transformDataElement.recheckTime[0]}`;
-      content += `,${transformDataElement.recheckTime[1]}`;
-      content += `,${transformDataElement.recheckMemoryUsed}`;
+      await appendFile(this.benchmarkConfig.resultsPath, content);
     }
-
-    await appendFile(this.benchmarkConfig.resultsPath, content);
   }
 }
