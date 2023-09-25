@@ -1,0 +1,70 @@
+{
+  "benchmarkConfigs": [
+    {
+      "matchTransformPercentage": 30,
+      "randomSeed": "incremunica",
+      "joinAlgorithm": "partial-hash-join",
+      "dataPath": "/home/maarten/Documents/doctoraat/code/incremunica-trainbench/data/models/railway-inject-1-inferred.ttl",
+      "cachedResultsBasePath": "/home/maarten/Documents/doctoraat/code/incremunica-trainbench/data/cachedResults/",
+      "operationStings": [
+        "BatchConnectedSegments",
+        "BatchPosLength",
+        "BatchRouteSensor",
+        "BatchSemaphoreNeighbor",
+        "BatchSwitchMonitored",
+        "BatchSwitchSet",
+
+        "InjectConnectedSegments",
+        "InjectPosLength",
+        "InjectRouteSensor",
+        "InjectSemaphoreNeighbor",
+        "InjectSwitchMonitored",
+        "InjectSwitchSet",
+
+        "RepairConnectedSegments",
+        "RepairPosLength",
+        "RepairRouteSensor",
+        "RepairSemaphoreNeighbor",
+        "RepairSwitchMonitored",
+        "RepairSwitchSet"
+      ],
+      "numberOfTransforms": 3,
+      "numberOfRuns": 0,
+      "baseResultPath": "/home/maarten/Documents/doctoraat/code/incremunica-trainbench/results/resultsData/",
+      "baseConfigPath": "/home/maarten/Documents/doctoraat/code/incremunica-trainbench/results/benchmarkConfigs/"
+    },
+    {
+      "matchTransformPercentage": 30,
+      "randomSeed": "incremunica",
+      "joinAlgorithm": "partial-hash-join",
+      "dataPath": "/home/maarten/Documents/doctoraat/code/incremunica-trainbench/data/models/railway-inject-1-inferred.ttl",
+      "cachedResultsBasePath": "/home/maarten/Documents/doctoraat/code/incremunica-trainbench/data/cachedResults/",
+      "operationStings": [
+        "BatchConnectedSegments",
+        "BatchPosLength",
+        "BatchRouteSensor",
+        "BatchSemaphoreNeighbor",
+        "BatchSwitchMonitored",
+        "BatchSwitchSet",
+
+        "InjectConnectedSegments",
+        "InjectPosLength",
+        "InjectRouteSensor",
+        "InjectSemaphoreNeighbor",
+        "InjectSwitchMonitored",
+        "InjectSwitchSet",
+
+        "RepairConnectedSegments",
+        "RepairPosLength",
+        "RepairRouteSensor",
+        "RepairSemaphoreNeighbor",
+        "RepairSwitchMonitored",
+        "RepairSwitchSet"
+      ],
+      "numberOfTransforms": 3,
+      "numberOfRuns": 0,
+      "baseResultPath": "/home/maarten/Documents/doctoraat/code/incremunica-trainbench/results/resultsData/",
+      "baseConfigPath": "/home/maarten/Documents/doctoraat/code/incremunica-trainbench/results/benchmarkConfigs/"
+    }
+  ]
+}
