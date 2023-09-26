@@ -69,14 +69,14 @@ async function run(): Promise<void> {
 
       //save benchmark config
       try {fs.mkdirSync(benchmarkFile.commonConfig.baseConfigPath) } catch (e) {}
-      fs.writeFileSync(benchmarkFile.commonConfig.baseConfigPath + configFileName, JSON.stringify(configFile));
+      fs.writeFileSync(benchmarkFile.commonConfig.baseConfigPath + configFileName, JSON.stringify(benchmarkConfig));
 
       try { fs.rmSync(benchmarkFile.commonConfig.baseConfigPath + 'latest', {recursive: true}) } catch (e) {}
       try { fs.mkdirSync(benchmarkFile.commonConfig.baseConfigPath + 'latest') } catch (e) {}
-      fs.writeFileSync(benchmarkFile.commonConfig.baseConfigPath + 'latest/' + configFileName,JSON.stringify(configFile, undefined, "\n"));
+      fs.writeFileSync(benchmarkFile.commonConfig.baseConfigPath + 'latest/' + configFileName,JSON.stringify(benchmarkConfig, undefined, "\n"));
 
       try {fs.mkdirSync(benchmarkFile.commonConfig.baseResultPath) } catch (e) {}
-      fs.writeFileSync(resultPath, QueryRunner.BuildCSVHeader(configFile));
+      fs.writeFileSync(resultPath, QueryRunner.BuildCSVHeader(benchmarkConfig));
 
       //warmupRound
       try {
