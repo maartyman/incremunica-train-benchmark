@@ -79,20 +79,29 @@ async function run(): Promise<void> {
       fs.writeFileSync(resultPath, QueryRunner.BuildCSVHeader(configFile));
 
       //warmupRound
-      const worker = new Worker(__filename, {
-        workerData: benchmarkConfig
-      });
+      try {
+        const worker = new Worker(__filename, {
+          workerData: benchmarkConfig
+        });
 
-      await new Promise<void>((resolve) => worker.once('message', () => {
-        resolve();
-      }));
+        await new Promise<void>((resolve, reject) => {
+          worker.once('message', () => {
+            resolve();
+          });
+          worker.on("error", (err: any) => {
+            reject(err);
+          });
+        });
+      } catch (e) {
+        continue;
+      }
 
       for (let i = 0; i < configFile.numberOfRuns; i++) {
         try {
           benchmarkConfig.runNr = i;
 
           const worker = new Worker(__filename, {
-            workerData: benchmarkConfig
+            workerData: benchmarkConfig,
           });
 
           await new Promise<void>((resolve, reject) => {
@@ -104,7 +113,7 @@ async function run(): Promise<void> {
             });
           });
         } catch (e) {
-          break;
+          continue;
         }
       }
     }
