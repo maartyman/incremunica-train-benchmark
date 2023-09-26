@@ -91,6 +91,9 @@ async function run(): Promise<void> {
           worker.on("error", (err: any) => {
             reject(err);
           });
+          worker.on("exit", () => {
+            resolve();
+          });
         });
       } catch (e) {
         continue;
@@ -110,6 +113,9 @@ async function run(): Promise<void> {
             })
             worker.on("error", (err: any) => {
               reject(err);
+            });
+            worker.on("exit", () => {
+              resolve();
             });
           });
         } catch (e) {
