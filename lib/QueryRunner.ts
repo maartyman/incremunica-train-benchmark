@@ -169,7 +169,7 @@ export class QueryRunner {
       for (const result of benchmarkResults) {
         content += `${result.operationName},`;
         content += `${result.isTransformation},`;
-        content += this.benchmarkConfig.runNr;
+        content += this.benchmarkConfig.runNr + ',';
         content += `${result.transformationNr},`;
         content += `${result.queryTimes},`;
         content += `${result.queryTimens},`;
