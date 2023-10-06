@@ -40,6 +40,10 @@ export class Operation {
     this.config = config;
 
     this.streamingStore = new StreamingStore<Quad>();
+
+    for (const quad of driver.streamingStore.getStore()) {
+      this.streamingStore.addQuad(<Quad>quad);
+    }
     this.streamingStore.halt();
     this.streamingStore.import(this.driver.streamingStore.match());
 
@@ -55,6 +59,14 @@ export class Operation {
       throw new Error(`${this.operationName} does not overwrite 'operationName'`);
     }
     this.operationName = operationName;
+  }
+
+  public resume(): void {
+    this.streamingStore.resume();
+  }
+
+  public halt(): void {
+    this.streamingStore.halt();
   }
 
   public static bindingsHash(bindings: Bindings): string {
@@ -87,7 +99,6 @@ export class Operation {
         );
       }
 
-      this.streamingStore.resume();
       this.readFromBindingsStream(resolve);
       this.bindingsStream.on('readable', () => this.readFromBindingsStream(resolve));
     });
@@ -132,18 +143,15 @@ export class Operation {
       }
       if (this.changeBindingsMap.size === 0) {
         this.bindingsStream!.removeAllListeners('readable');
-        this.streamingStore.halt();
         resolve();
       }
 
-      //
-      // if (this.operationName === 'repair connected segments') {
+      // If (this.operationName === 'repair connected segments' && this.changeBindingsMap.size < 100) {
       // console.log("split");
       // for (const [key, value] of this.changeBindingsMap) {
-      //     console.log(key, value);
+      // console.log(key, value);
       // }
       // }
-      //
 
       bindings = this.bindingsStream!.read();
     }
@@ -152,7 +160,7 @@ export class Operation {
   public async calculateNumberOfResults(cachedResults: any, runNum: number): Promise<void> {
     const changeBindingsMap = cachedResults[this.operationName + runNum.toString()];
     if (changeBindingsMap) {
-      for (let i = 0; i < 20; i++) {
+      for (let i = 0; i < 100; i++) {
         await new Promise<void>(resolve => setTimeout(() => resolve(), 1));
       }
       this.changeBindingsMap = new Map(Object.entries(changeBindingsMap));
@@ -209,10 +217,11 @@ export class Operation {
   }
 
   public async transform(): Promise<void> {
-    // If (!this.driver.streamingStore.isHalted()) {
-    //  throw new Error('StreamingStore hasn\'t been halted');
-    // }
     await this.query();
+
+    if (!this.streamingStore.isHalted()) {
+      throw new Error('StreamingStore hasn\'t been halted');
+    }
 
     const bindings: Bindings[] = this.getTransformMatches();
 

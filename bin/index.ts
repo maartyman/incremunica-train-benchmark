@@ -96,6 +96,7 @@ async function run(): Promise<void> {
           });
         });
       } catch (e) {
+        console.log(e);
         continue;
       }
 
@@ -119,7 +120,7 @@ async function run(): Promise<void> {
             });
           });
         } catch (e) {
-          continue;
+          console.log(e);
         }
       }
     }

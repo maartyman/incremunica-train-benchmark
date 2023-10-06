@@ -6,8 +6,6 @@ import { OperationFactory } from './operations/OperationFactory';
 import type { BenchmarkConfig } from './Types';
 
 export class QueryRunner {
-  private readonly driver: Driver;
-
   private readonly operations: Operation[];
 
   private readonly benchmarkConfig: BenchmarkConfig;
@@ -15,12 +13,10 @@ export class QueryRunner {
   private readonly cachedResults: any;
 
   public constructor(
-    driver: Driver,
     operations: Operation[],
     benchmarkConfig: BenchmarkConfig,
     cachedResults: any = {},
   ) {
-    this.driver = driver;
     this.operations = operations;
     this.benchmarkConfig = benchmarkConfig;
     this.cachedResults = cachedResults;
@@ -75,7 +71,7 @@ export class QueryRunner {
 
     cachedResults.cachedResultsFilePath = cachedResultsFilePath;
 
-    return new QueryRunner(driver, operations, benchmarkConfig, cachedResults);
+    return new QueryRunner(operations, benchmarkConfig, cachedResults);
   }
 
   public async run(): Promise<void> {
@@ -99,7 +95,9 @@ export class QueryRunner {
     for (const operation of this.operations) {
       if (!operation.transformation) {
         // Console.log('Calculate num of results');
+        operation.resume();
         await operation.calculateNumberOfResults(this.cachedResults, 0);
+        operation.halt();
 
         const initialQueryStart = process.hrtime();
         await operation.query();
@@ -123,7 +121,9 @@ export class QueryRunner {
       for (const operation of this.operations) {
         if (operation.transformation) {
           // Console.log('Calculate num of results');
+          operation.resume();
           await operation.calculateNumberOfResults(this.cachedResults, i);
+          operation.halt();
 
           const initialQueryStart = process.hrtime();
           await operation.transform();
@@ -145,7 +145,9 @@ export class QueryRunner {
       for (const operation of this.operations) {
         if (!operation.transformation) {
           // Console.log('Calculate num of results');
+          operation.resume();
           await operation.calculateNumberOfResults(this.cachedResults, i);
+          operation.halt();
 
           const initialQueryStart = process.hrtime();
           await operation.query();
