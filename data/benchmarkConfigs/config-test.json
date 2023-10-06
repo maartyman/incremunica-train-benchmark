@@ -1,0 +1,22 @@
+{
+  "commonConfig": {
+    "randomSeed": "incremunica",
+    "cachedResultsBasePath": "/home/maarten/Documents/doctoraat/code/incremunica-trainbench/data/cachedResults/",
+    "baseResultPath": "/home/maarten/Documents/doctoraat/code/incremunica-trainbench/results/resultsData/",
+    "baseConfigPath": "/home/maarten/Documents/doctoraat/code/incremunica-trainbench/results/benchmarkConfigs/",
+    "baseIncremunicaConfigPath": "/home/maarten/Documents/doctoraat/code/incremunica-trainbench/data/configs/"
+  },
+  "benchmarkConfigs": [
+    {
+      "matchTransformPercentage": 30,
+      "randomSeed": "incremunica",
+      "joinAlgorithm": "computational-bind-join",
+      "dataPath": "/home/maarten/Documents/doctoraat/code/incremunica-trainbench/data/models/railway-inject-1-inferred.ttl",
+      "operationStings": [
+        "BatchConnectedSegments"
+      ],
+      "numberOfTransforms": 0,
+      "numberOfRuns": 0
+    }
+  ]
+}
