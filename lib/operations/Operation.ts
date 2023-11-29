@@ -7,6 +7,7 @@ import seedrandom = require('seedrandom');
 import { StreamingStore } from '../../../incremunica/packages/incremental-rdf-streaming-store';
 import type { Driver } from '../Driver';
 import type { BenchmarkConfig } from '../Types';
+import { UpToDateAsyncIterator } from './UpToDateAsyncIterator';
 
 const BF = new BindingsFactory();
 
@@ -91,22 +92,26 @@ export class Operation {
     }
     await new Promise<void>(async resolve => {
       if (this.bindingsStream === undefined) {
-        this.bindingsStream = <BindingsStream> await this.driver.queryEngine.queryBindings(
+        this.bindingsStream = new UpToDateAsyncIterator(<BindingsStream> await this.driver.queryEngine.queryBindings(
           this.queryString,
           {
             sources: [ this.streamingStore ],
           },
-        );
+        ));
       }
 
-      this.readFromBindingsStream(resolve);
-      this.bindingsStream.on('readable', () => this.readFromBindingsStream(resolve));
+      this.readFromBindingsStream();
+      this.bindingsStream.on('readable', () => {
+        this.readFromBindingsStream();
+      });
+
+      this.bindingsStream.on('up-to-date', resolve);
     });
 
     // Console.log(this.operationName, 'number of total results:', this.bindingsMap.size);
   }
 
-  private readFromBindingsStream(resolve: (value: (void | PromiseLike<void>)) => void): void {
+  private readFromBindingsStream(): void {
     let bindings = this.bindingsStream!.read();
     while (bindings) {
       const hash = Operation.bindingsHash(bindings);
@@ -143,7 +148,6 @@ export class Operation {
       }
       if (this.changeBindingsMap.size === 0) {
         this.bindingsStream!.removeAllListeners('readable');
-        resolve();
       }
 
       // If (this.operationName === 'repair connected segments' && this.changeBindingsMap.size < 100) {

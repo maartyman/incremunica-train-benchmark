@@ -2,9 +2,9 @@
   "extends": "./tsconfig.json",
   "include": [
     "lib/*",
-    "lib/*/*",
-    "lib/*/*/*",
-    "bin/*"
+    "lib/**/*",
+    "bin/*",
+    "bin/**/*"
   ],
   "exclude": [
     "**/node_modules"
