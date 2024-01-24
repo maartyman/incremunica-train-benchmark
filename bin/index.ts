@@ -2,7 +2,7 @@ import {QueryRunner} from "../lib/QueryRunner";
 import * as fs from 'fs';
 import { v4 as uuidv4 } from 'uuid';
 import {BenchmarkConfig} from "../lib/Types";
-const { Worker, isMainThread, parentPort, workerData } = require('worker_threads');
+import {Worker, isMainThread, parentPort, workerData} from 'worker_threads';
 
 function getJoinConfigPath(basePathName: string, joinName: string) {
   switch (joinName) {
@@ -60,7 +60,6 @@ async function run(): Promise<void> {
         randomSeed: benchmarkFile.commonConfig.randomSeed,
         queryEngineConfig: getJoinConfigPath(benchmarkFile.commonConfig.baseIncremunicaConfigPath, configFile.joinAlgorithm),
         dataPath: configFile.dataPath,
-        cachedResultsBasePath: benchmarkFile.commonConfig.cachedResultsBasePath,
         operationStings: configFile.operationStings,
         resultsPath: resultPath,
         numberOfTransforms: configFile.numberOfTransforms,
@@ -133,6 +132,7 @@ async function run(): Promise<void> {
 
     await queryRunner.run();
 
+    if (parentPort === null) throw new Error('parentPort is null');
     parentPort.postMessage('');
     process.exit()
   }
