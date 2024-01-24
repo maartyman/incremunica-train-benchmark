@@ -127,6 +127,7 @@ async function run(): Promise<void> {
     console.log('Run');
 
     let benchmarkConfig: BenchmarkConfig = workerData;
+    console.log(JSON.stringify(benchmarkConfig));
 
     const queryRunner = await QueryRunner.setupQueryRunner(benchmarkConfig);
 
