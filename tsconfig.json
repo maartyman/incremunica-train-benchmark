@@ -22,7 +22,9 @@
   },
   "include": [
     "lib/*",
-    "bin/*"
+    "lib/**/*",
+    "bin/*",
+    "bin/**/*"
   ],
   "exclude": [
     "**/node_modules"

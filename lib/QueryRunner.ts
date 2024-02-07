@@ -1,4 +1,3 @@
-import * as fs from 'fs';
 import { appendFile } from 'fs/promises';
 import { Driver } from './Driver';
 import type { Operation } from './operations/Operation';
@@ -10,16 +9,12 @@ export class QueryRunner {
 
   private readonly benchmarkConfig: BenchmarkConfig;
 
-  private readonly cachedResults: any;
-
   public constructor(
     operations: Operation[],
     benchmarkConfig: BenchmarkConfig,
-    cachedResults: any = {},
   ) {
     this.operations = operations;
     this.benchmarkConfig = benchmarkConfig;
-    this.cachedResults = cachedResults;
   }
 
   public static BuildCSVHeader(benchmarkConfig: BenchmarkConfig): string {
@@ -44,43 +39,10 @@ export class QueryRunner {
       operations.push(OperationFactory.create(operationSting, driver, benchmarkConfig));
     }
 
-    const pathArray = benchmarkConfig.dataPath.split('/');
-    const cachedResultsFilePath = `${benchmarkConfig.cachedResultsBasePath +
-      benchmarkConfig.randomSeed}#${
-      benchmarkConfig.operationStings
-        .map(str => str.replace(/[a-z]/gu, '')).join('#')}#${
-      benchmarkConfig.matchTransformPercentage}#${
-      pathArray[pathArray.length - 1]}.json`;
-
-    const cachedResults = await new Promise<any>((resolve, reject) => {
-      fs.readFile(
-        cachedResultsFilePath,
-        'utf8',
-        (error, data) => {
-          if (error) {
-            resolve({});
-          }
-          try {
-            resolve(JSON.parse(data));
-          } catch {
-            resolve({});
-          }
-        },
-      );
-    });
-
-    cachedResults.cachedResultsFilePath = cachedResultsFilePath;
-
-    return new QueryRunner(operations, benchmarkConfig, cachedResults);
+    return new QueryRunner(operations, benchmarkConfig);
   }
 
   public async run(): Promise<void> {
-    // Console.log('Start run');
-    // eslint-disable-next-line no-process-env
-    if (process.env.NODE_ENV !== 'production') {
-      throw new Error('Not in production mode!');
-    }
-
     const benchmarkResults: {
       operationName: string;
       isTransformation: boolean;
@@ -90,14 +52,12 @@ export class QueryRunner {
       memoryUsed: number;
     }[] = [];
 
-    // Console.log('Query');
+    // eslint-disable-next-line no-console
+    console.log('Query');
     // Query
     for (const operation of this.operations) {
       if (!operation.transformation) {
-        // Console.log('Calculate num of results');
-        operation.resume();
-        await operation.calculateNumberOfResults(this.cachedResults, 0);
-        operation.halt();
+        operation.flush();
 
         const initialQueryStart = process.hrtime();
         await operation.query();
@@ -116,14 +76,12 @@ export class QueryRunner {
     }
 
     for (let i = 1; i < this.benchmarkConfig.numberOfTransforms + 1; i++) {
-      // Console.log('Transform');
+      // eslint-disable-next-line no-console
+      console.log('Transform');
       // Transform
       for (const operation of this.operations) {
         if (operation.transformation) {
-          // Console.log('Calculate num of results');
-          operation.resume();
-          await operation.calculateNumberOfResults(this.cachedResults, i);
-          operation.halt();
+          operation.flush();
 
           const initialQueryStart = process.hrtime();
           await operation.transform();
@@ -140,14 +98,12 @@ export class QueryRunner {
           });
         }
       }
-      // Console.log('Recheck');
+      // eslint-disable-next-line no-console
+      console.log('Recheck');
       // Recheck
       for (const operation of this.operations) {
         if (!operation.transformation) {
-          // Console.log('Calculate num of results');
-          operation.resume();
-          await operation.calculateNumberOfResults(this.cachedResults, i);
-          operation.halt();
+          operation.flush();
 
           const initialQueryStart = process.hrtime();
           await operation.query();
