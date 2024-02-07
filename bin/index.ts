@@ -117,6 +117,9 @@ async function run(): Promise<void> {
             worker.on("exit", () => {
               resolve();
             });
+            setTimeout(() => {
+              resolve();
+            }, 30*60000);
           });
         } catch (e) {
           console.log(e);

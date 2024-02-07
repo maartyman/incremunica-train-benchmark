@@ -1,5 +1,4 @@
-import { QueryEngineFactory } from '@comunica/query-sparql-rdfjs';
-import { BindingsFactory } from '@incremunica/incremental-bindings-factory';
+import { QueryEngine } from '@comunica/query-sparql-rdfjs';
 import type { Bindings, BindingsStream, Quad } from '@incremunica/incremental-types';
 import type { Term } from 'n3';
 import seedrandom = require('seedrandom');
@@ -7,8 +6,6 @@ import { HashBindings } from '../../../incremunica/packages/hash-bindings';
 import { StreamingStore } from '../../../incremunica/packages/incremental-rdf-streaming-store';
 import type { Driver } from '../Driver';
 import type { BenchmarkConfig } from '../Types';
-
-const BF = new BindingsFactory();
 
 export class Operation {
   public readonly queryString: string;
@@ -74,6 +71,7 @@ export class Operation {
   }
 
   public async query(): Promise<void> {
+    console.log(this.operationName);
     await new Promise<void>(async resolve => {
       if (this.bindingsStream === undefined) {
         this.bindingsStream = <BindingsStream> await this.driver.queryEngine.queryBindings(
@@ -84,37 +82,43 @@ export class Operation {
         );
       }
 
-      this.bindingsStream.on('data', (bindings: Bindings) => {
-        // Console.log('data')
-        const hash = this.hashBindings.hash(bindings);
+      const processBindings = (): void => {
+        let bindings = this.bindingsStream!.read();
+        while (bindings) {
+          const hash = this.hashBindings.hash(bindings);
 
-        const bindingsData = this.bindingsMap.get(hash);
-        if (bindings.diff) {
-          if (bindingsData) {
-            bindingsData.count++;
+          const bindingsData = this.bindingsMap.get(hash);
+          if (bindings.diff) {
+            if (bindingsData) {
+              bindingsData.count++;
+              if (bindingsData.count === 0) {
+                this.bindingsMap.delete(hash);
+              }
+            } else {
+              this.bindingsMap.set(hash, { bindings, count: 1 });
+            }
+          } else if (bindingsData) {
+            bindingsData.count--;
             if (bindingsData.count === 0) {
               this.bindingsMap.delete(hash);
             }
           } else {
-            this.bindingsMap.set(hash, { bindings, count: 1 });
+            this.bindingsMap.set(hash, { bindings, count: -1 });
           }
-        } else if (bindingsData) {
-          bindingsData.count--;
-          if (bindingsData.count === 0) {
-            this.bindingsMap.delete(hash);
-          }
-        } else {
-          this.bindingsMap.set(hash, { bindings, count: -1 });
+          bindings = this.bindingsStream!.read();
         }
-      });
+      };
 
       this.bindingsStream.once('up-to-date', () => {
-        this.bindingsStream?.removeAllListeners('data');
+        this.bindingsStream?.removeListener('readable', processBindings);
         resolve();
       });
+
+      processBindings();
+      this.bindingsStream.on('readable', processBindings);
     });
 
-    const engine = await new QueryEngineFactory().create();
+    const engine = new QueryEngine();
     const bindingsStream = await engine.queryBindings(
       this.queryString,
       {
@@ -129,6 +133,7 @@ export class Operation {
 
     bindingsStream.on('data', (bindings: Bindings) => {
       const hash = this.hashBindings.hash(bindings);
+      // Console.log(hash)
       if (changeBindingsMap.has(hash)) {
         changeBindingsMap.delete(hash);
       } else {
@@ -139,8 +144,21 @@ export class Operation {
     await new Promise<void>(resolve => bindingsStream.on('end', () => resolve()));
 
     if (changeBindingsMap.size > 0) {
-      throw new Error(`Materialized result not complete, amount of faults: ${changeBindingsMap.size}`);
+      let missing = 0;
+      let extra = 0;
+      for (const changeBindingsMapElement of changeBindingsMap) {
+        if (changeBindingsMapElement[1] > 0) {
+          missing++;
+        } else {
+          extra++;
+        }
+      }
+      throw new Error(`Materialized result not complete, amount of faults: ${changeBindingsMap.size} of ${this.bindingsMap.size}. ${extra} are extra and ${missing} are missing`);
+    } else {
+      console.log('-- good --');
     }
+
+    this.streamingStore.halt();
 
     // Console.log(this.operationName, 'number of total results:', this.bindingsMap.size);
   }
